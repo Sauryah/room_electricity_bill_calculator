@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room Electricity Bill Split Calculator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            margin: 20px auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+            text-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            padding: 25px;
+            margin-bottom: 25px;
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        h2 {
+            color: #2575fc;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #444;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            border-color: #2575fc;
+            outline: none;
+        }
+
+        .roommate-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+
+        .roommate-name {
+            flex: 2;
+        }
+
+        .days-present {
+            flex: 1;
+        }
+
+        .remove-btn {
+            flex: 0 0 40px;
+            background: #ff4757;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s;
+        }
+
+        .remove-btn:hover {
+            background: #ff2e43;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background: #2575fc;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0d62e6;
+        }
+
+        .btn-secondary {
+            background: #6a11cb;
+            color: white;
+            margin-left: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #570cb0;
+        }
+
+        .btn-success {
+            background: #2ed573;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #25b562;
+        }
+
+        .btn i {
+            margin-right: 8px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        /* Responsive table styles */
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px; /* Minimum width for the table */
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        th {
+            background-color: #f7f9fc;
+            font-weight: 600;
+            color: #2575fc;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover {
+            background-color: #f7f9fc;
+        }
+
+        .total-row {
+            font-weight: 600;
+            background-color: #e6f0ff;
+        }
+
+        .results {
+            display: none;
+        }
+
+        .summary {
+            background: #e6f0ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .summary p {
+            margin: 8px 0;
+            font-size: 16px;
+        }
+
+        /* Mobile-specific styles */
+        @media (max-width: 768px) {
+            .roommate-row {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .roommate-name, .days-present, .remove-btn {
+                width: 100%;
+            }
+            
+            .actions {
+                flex-direction: column;
+            }
+            
+            .btn-secondary {
+                margin-left: 0;
+                margin-top: 10px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .card {
+                padding: 20px;
+            }
+            
+            /* Stack table cells vertically on very small screens */
+            @media (max-width: 480px) {
+                .table-container {
+                    overflow-x: visible;
+                }
+                
+                table {
+                    min-width: 100%;
+                    display: block;
+                }
+                
+                thead {
+                    display: none;
+                }
+                
+                tr {
+                    display: block;
+                    margin-bottom: 15px;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 8px;
+                    padding: 10px;
+                }
+                
+                td {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 10px;
+                    border-bottom: 1px solid #f0f0f0;
+                }
+                
+                td:last-child {
+                    border-bottom: none;
+                }
+                
+                td::before {
+                    content: attr(data-label);
+                    font-weight: 600;
+                    color: #2575fc;
+                }
+                
+                .total-row {
+                    display: block;
+                    font-weight: 600;
+                    background-color: #e6f0ff;
+                }
+                
+                .total-row td {
+                    display: block;
+                    text-align: center;
+                    border: none;
+                }
+                
+                .total-row td::before {
+                    display: block;
+                    margin-bottom: 5px;
+                }
+            }
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            header, .input-card, .actions {
+                display: none !important;
+            }
+            
+            .container {
+                max-width: 100%;
+                margin: 0;
+            }
+            
+            .card {
+                box-shadow: none;
+                padding: 0;
+            }
+            
+            .results {
+                display: block !important;
+            }
+            
+            /* Ensure table prints correctly */
+            .table-container {
+                overflow-x: visible;
+            }
+            
+            table {
+                width: 100%;
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Room Electricity Bill Split Calculator</h1>
+            <p class="subtitle">Fairly split electricity bills among roommates based on days present</p>
+        </header>
+
+        <div class="card input-card">
+            <h2>Bill Information</h2>
+            
+            <div class="input-group">
+                <label for="total-bill">Total Electricity Bill (₹)</label>
+                <input type="number" id="total-bill" min="0" placeholder="Enter total bill amount">
+            </div>
+
+            <div class="input-group">
+                <label for="motor-bill">Motor Bill (₹, optional)</label>
+                <input type="number" id="motor-bill" min="0" placeholder="Enter motor bill amount (if any)">
+            </div>
+
+            <div class="input-group">
+                <label for="total-days">Total Days in Month</label>
+                <input type="number" id="total-days" min="1" max="31" value="30" placeholder="Enter total days">
+            </div>
+
+            <h2>Roommates</h2>
+            <div id="roommates-container">
+                <div class="roommate-row">
+                    <input type="text" class="roommate-name" placeholder="Roommate Name">
+                    <input type="number" class="days-present" min="0" placeholder="Days present">
+                    <button class="remove-btn"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="roommate-row">
+                    <input type="text" class="roommate-name" placeholder="Roommate Name">
+                    <input type="number" class="days-present" min="0" placeholder="Days present">
+                    <button class="remove-btn"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+
+            <button id="add-roommate" class="btn btn-primary"><i class="fas fa-plus"></i> Add Roommate</button>
+
+            <div class="actions">
+                <button id="calculate" class="btn btn-success"><i class="fas fa-calculator"></i> Calculate Shares</button>
+                <button id="print-btn" class="btn btn-secondary"><i class="fas fa-print"></i> Print/Save as PDF</button>
+            </div>
+        </div>
+
+        <div class="card results" id="results-card">
+            <h2>Bill Split Results</h2>
+            
+            <div class="summary">
+                <p><strong>Total Electricity Bill:</strong> ₹<span id="total-bill-amount">0</span></p>
+                <p><strong>Motor Bill (deducted):</strong> ₹<span id="display-motor-bill">0</span></p>
+                <p><strong>Room Electricity Bill (Total - Motor):</strong> ₹<span id="room-bill-amount">0</span></p>
+            </div>
+            
+            <div class="table-container">
+                <table id="results-table">
+                    <thead>
+                        <tr>
+                            <th>Roommate</th>
+                            <th>Days Present</th>
+                            <th>Share of Room Bill (₹)</th>
+                            <th>Total Share (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Results will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const roommatesContainer = document.getElementById('roommates-container');
+            const addRoommateBtn = document.getElementById('add-roommate');
+            const calculateBtn = document.getElementById('calculate');
+            const printBtn = document.getElementById('print-btn');
+            const resultsCard = document.getElementById('results-card');
+            const resultsTable = document.getElementById('results-table').querySelector('tbody');
+            
+            // Add roommate row
+            addRoommateBtn.addEventListener('click', function() {
+                const row = document.createElement('div');
+                row.className = 'roommate-row';
+                row.innerHTML = `
+                    <input type="text" class="roommate-name" placeholder="Roommate Name">
+                    <input type="number" class="days-present" min="0" placeholder="Days present">
+                    <button class="remove-btn"><i class="fas fa-times"></i></button>
+                `;
+                roommatesContainer.appendChild(row);
+                
+                // Add event listener to the remove button
+                row.querySelector('.remove-btn').addEventListener('click', function() {
+                    if (roommatesContainer.children.length > 1) {
+                        row.remove();
+                    } else {
+                        alert("You need at least one roommate!");
+                    }
+                });
+            });
+            
+            // Add event listeners to initial remove buttons
+            document.querySelectorAll('.remove-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    if (roommatesContainer.children.length > 1) {
+                        this.closest('.roommate-row').remove();
+                    } else {
+                        alert("You need at least one roommate!");
+                    }
+                });
+            });
+            
+            // Calculate shares
+            calculateBtn.addEventListener('click', function() {
+                const totalBill = parseFloat(document.getElementById('total-bill').value) || 0;
+                const motorBill = parseFloat(document.getElementById('motor-bill').value) || 0;
+                const totalDays = parseFloat(document.getElementById('total-days').value) || 30;
+                
+                if (totalBill <= 0) {
+                    alert("Please enter a valid total electricity bill amount.");
+                    return;
+                }
+                
+                if (motorBill > totalBill) {
+                    alert("Motor bill cannot be greater than total bill.");
+                    return;
+                }
+                
+                if (totalDays <= 0 || totalDays > 31) {
+                    alert("Please enter a valid number of days (1-31).");
+                    return;
+                }
+                
+                const roomBill = totalBill - motorBill;
+                
+                // Update bill amounts in results
+                document.getElementById('total-bill-amount').textContent = totalBill.toFixed(2);
+                document.getElementById('display-motor-bill').textContent = motorBill.toFixed(2);
+                document.getElementById('room-bill-amount').textContent = roomBill.toFixed(2);
+                
+                // Get all roommates
+                const roommateRows = document.querySelectorAll('.roommate-row');
+                const roommates = [];
+                let totalDaysPresent = 0;
+                
+                // Validate and collect roommate data
+                for (let row of roommateRows) {
+                    const name = row.querySelector('.roommate-name').value.trim();
+                    const days = parseFloat(row.querySelector('.days-present').value) || 0;
+                    
+                    if (!name) {
+                        alert("Please enter a name for all roommates.");
+                        return;
+                    }
+                    
+                    if (days < 0 || days > totalDays) {
+                        alert(`Days present for ${name} must be between 0 and ${totalDays}.`);
+                        return;
+                    }
+                    
+                    roommates.push({ name, days });
+                    totalDaysPresent += days;
+                }
+                
+                if (totalDaysPresent === 0) {
+                    alert("Total days present across all roommates cannot be zero.");
+                    return;
+                }
+                
+                // Clear previous results
+                resultsTable.innerHTML = '';
+                
+                // Calculate and display results
+                let totalRoomShare = 0;
+                let totalShare = 0;
+                
+                roommates.forEach(roommate => {
+                    const roomShare = (roommate.days / totalDaysPresent) * roomBill;
+                    const roommateTotal = roomShare; // Motor bill is deducted from total, not added to shares
+                    
+                    totalRoomShare += roomShare;
+                    totalShare += roommateTotal;
+                    
+                    const row = document.createElement('tr');
+                    
+                    // For mobile responsiveness, we'll add data attributes
+                    row.innerHTML = `
+                        <td data-label="Roommate">${roommate.name}</td>
+                        <td data-label="Days Present">${roommate.days}</td>
+                        <td data-label="Room Share">₹${roomShare.toFixed(2)}</td>
+                        <td data-label="Total Share"><strong>₹${roommateTotal.toFixed(2)}</strong></td>
+                    `;
+                    resultsTable.appendChild(row);
+                });
+                
+                // Add total row
+                const totalRow = document.createElement('tr');
+                totalRow.className = 'total-row';
+                totalRow.innerHTML = `
+                    <td data-label=""><strong>Total</strong></td>
+                    <td data-label="Days"><strong>${totalDaysPresent}</strong></td>
+                    <td data-label="Room Share"><strong>₹${totalRoomShare.toFixed(2)}</strong></td>
+                    <td data-label="Total Share"><strong>₹${totalShare.toFixed(2)}</strong></td>
+                `;
+                resultsTable.appendChild(totalRow);
+                
+                // Show results
+                resultsCard.style.display = 'block';
+                
+                // Scroll to results
+                resultsCard.scrollIntoView({ behavior: 'smooth' });
+            });
+            
+            // Print/Save as PDF
+            printBtn.addEventListener('click', function() {
+                if (resultsCard.style.display === 'block') {
+                    window.print();
+                } else {
+                    alert("Please calculate the shares first.");
+                }
+            });
+        });
+    </script>
+</body>
+</html>
