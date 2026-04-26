@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room Bill Splitter</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Outfit:wght@700;800;900&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'heading': ['Outfit', 'sans-serif'],
+                        'body': ['IBM Plex Sans', 'sans-serif'],
+                        'mono': ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        'cream': '#FFFDF7',
+                        'primary': '#C4F1F9',
+                        'secondary': '#FFC0CB',
+                        'accent': '#FEEBC8',
+                        'danger': '#FFB3B3',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Override CRA's compiled shadcn tailwind colors (bg-primary, etc.) with our pastel theme.
+           Use html body prefix to win specificity over CRA's compiled stylesheet. */
+        html body .bg-primary { background-color: #C4F1F9 !important; }
+        html body .bg-secondary { background-color: #FFC0CB !important; }
+        html body .bg-accent { background-color: #FEEBC8 !important; }
+        html body .bg-danger { background-color: #FFB3B3 !important; }
+        html body .bg-cream { background-color: #FFFDF7 !important; }
+        html body .hover\:bg-accent:hover { background-color: #FEEBC8 !important; }
+        html body .hover\:bg-cream:hover { background-color: #FFFDF7 !important; }
+        html body .focus\:bg-cream:focus { background-color: #FFFDF7 !important; }
+
+        body {
+            background-color: #FFFDF7;
+            background-image: radial-gradient(#000000 1.5px, transparent 1.5px);
+            background-size: 32px 32px;
+            font-family: 'IBM Plex Sans', sans-serif;
+            color: #000;
+            min-height: 100vh;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .btn-press { transition: all 0.1s ease; }
+        .btn-press:active {
+            transform: translate(4px, 4px);
+            box-shadow: none !important;
+        }
+
+        @media print {
+            body { background: white !important; background-image: none !important; }
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            .card-print { box-shadow: none !important; border: 1px solid #ddd !important; }
+        }
+        .print-only { display: none; }
+
+        ::-webkit-scrollbar { width: 12px; }
+        ::-webkit-scrollbar-track { background: #FFFDF7; border: 2px solid black; }
+        ::-webkit-scrollbar-thumb { background: #C4F1F9; border: 2px solid black; }
+        ::-webkit-scrollbar-thumb:hover { background: #A0E2F3; }
+
+        /* Mobile Responsive Enhancements */
+        @media (max-width: 640px) {
+            body { background-size: 24px 24px; }
+            .mobile-shadow { box-shadow: 4px 4px 0 0 rgba(0,0,0,1) !important; }
+            .mobile-btn-shadow { box-shadow: 3px 3px 0 0 rgba(0,0,0,1) !important; }
+            .toast {
+                left: 50% !important;
+                right: auto !important;
+                transform: translateX(-50%) !important;
+                width: 90% !important;
+                max-width: 320px !important;
+                text-align: center !important;
+            }
+        }
+    </style>
+</head>
+<body class="font-body">
+    <!-- React mount point (kept for the CRA bundle injected by webpack; renders nothing). -->
+    <div id="root" style="display:none"></div>
+
+    <div class="max-w-7xl mx-auto px-4 py-8 md:py-12">
+        <!-- Header (visible only after login) -->
+        <header id="app-header" class="hidden text-center mb-6 sm:mb-10 no-print">
+            <div class="inline-block bg-secondary border-2 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] sm:shadow-[6px_6px_0_0_rgba(0,0,0,1)] px-4 sm:px-6 py-1.5 sm:py-2 mb-3 sm:mb-4">
+                <span class="font-mono font-bold text-xs sm:text-sm uppercase tracking-wider">Electricity Cost Sharing</span>
+            </div>
+            <h1 class="font-heading font-black text-3xl sm:text-4xl md:text-6xl uppercase tracking-tighter mb-2 sm:mb-3 px-2">
+                Room Bill Splitter
+            </h1>
+            <p class="text-sm sm:text-lg font-medium max-w-md mx-auto px-4">
+                A practical tool for calculating each roommate's electricity share based on occupancy days
+            </p>
+        </header>
+
+        <!-- 🔐 LOGIN CARD (mobile-responsive, full-width on small screens) -->
+        <div id="auth-card" class="max-w-md mx-auto mt-8 sm:mt-16 mb-6 p-5 sm:p-6 bg-white border-2 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] sm:shadow-[6px_6px_0_0_rgba(0,0,0,1)] no-print">
+            <div class="flex flex-col gap-4">
+                <div class="flex items-center justify-between gap-3 border-b-4 border-black pb-3">
+                    <h2 class="font-heading font-black text-lg sm:text-xl uppercase tracking-tight">
+                        <i class="fas fa-lock mr-2"></i>Sign In
+                    </h2>
+                    <span id="auth-badge" class="font-mono text-[10px] sm:text-xs uppercase tracking-wide bg-accent border-2 border-black px-2 py-1">
+                        Locked
+                    </span>
+                </div>
+
+                <p id="auth-status" class="text-xs sm:text-sm font-medium text-gray-700">
+                    Enter your username and password to continue.
+                </p>
+
+                <div>
+                    <label class="block font-bold uppercase tracking-wide text-xs mb-2 border-b-2 border-black inline-block pb-1" for="login-username">
+                        Username
+                    </label>
+                    <input
+                        id="login-username"
+                        type="text"
+                        autocomplete="username"
+                        autocapitalize="off"
+                        spellcheck="false"
+                        placeholder="Username"
+                        data-testid="login-username-input"
+                        class="bg-white border-2 border-black p-3 font-medium text-base focus:outline-none focus:bg-cream focus:shadow-[3px_3px_0_0_rgba(0,0,0,1)] transition-all w-full">
+                </div>
+
+                <div>
+                    <label class="block font-bold uppercase tracking-wide text-xs mb-2 border-b-2 border-black inline-block pb-1" for="login-password">
+                        Password
+                    </label>
+                    <input
+                        id="login-password"
+                        type="password"
+                        autocomplete="current-password"
+                        placeholder="Password"
+                        data-testid="login-password-input"
+                        class="bg-white border-2 border-black p-3 font-medium text-base focus:outline-none focus:bg-cream focus:shadow-[3px_3px_0_0_rgba(0,0,0,1)] transition-all w-full">
+                </div>
+
+                <button
+                    id="login-btn"
+                    data-testid="login-submit-button"
+                    class="btn-press w-full bg-primary hover:bg-[#A0E2F3] text-black border-2 border-black shadow-[3px_3px_0_0_rgba(0,0,0,1)] sm:shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-y-[2px] hover:translate-x-[2px] transition-all font-bold px-4 py-3 uppercase tracking-wide text-sm sm:text-base mt-1">
+                    <i class="fas fa-arrow-right-to-bracket mr-2"></i>Login
+                </button>
+
+                <p class="text-[11px] sm:text-xs font-medium text-gray-500 text-center pt-1">
+                    Authorized users only.
+                </p>
+            </div>
+        </div>
+
+        <!-- 🏠 PROTECTED APP (only visible after login) -->
+        <div id="protected-app" class="hidden">
+            <div class="max-w-3xl mx-auto mb-6 no-print">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white border-2 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] p-4">
+                    <div>
+                        <p class="font-heading font-black uppercase tracking-tight text-sm sm:text-base">Authorized Access</p>
+                        <p id="session-username" class="text-xs sm:text-sm font-medium text-gray-700">Logged in user</p>
+                    </div>
+                    <button id="logout-inline-btn" data-testid="logout-button" class="btn-press bg-danger border-2 border-black px-4 py-2 font-bold uppercase tracking-wide text-xs sm:text-sm shadow-[3px_3px_0_0_rgba(0,0,0,1)] hover:shadow-[1px_1px_0_0_rgba(0,0,0,1)] hover:translate-y-[2px] hover:translate-x-[2px] transition-all">
+                        <i class="fas fa-arrow-right-from-bracket mr-1"></i>Logout
+                    </button>
+                </div>
+            </div>
+
+            <!-- Print Header -->
+            <header class="print-only text-center mb-8">
+                <h1 class="text-2xl font-bold">Room Bill Split - Calculation Report</h1>
+                <p class="text-sm text-gray-600" id="print-date"></p>
+            </header>
+
+            <!-- Main Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8">
+                <!-- Left Column - Input Form -->
+                <div class="lg:col-span-5 flex flex-col gap-4 sm:gap-6 no-print">
+                    <!-- Bill Input Card -->
+                    <div class="bg-white border-2 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] sm:shadow-[6px_6px_0_0_rgba(0,0,0,1)] p-4 sm:p-6">
+                        <h2 class="font-heading font-black text-lg sm:text-xl uppercase tracking-tight mb-4 sm:mb-6 border-b-4 border-black pb-2">
+                            <i class="fas fa-bolt mr-2"></i>Bill Details
+                        </h2>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block font-bold uppercase tracking-wide text-xs mb-2 border-b-2 border-black inline-block pb-1">Total Bill Amount</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-1/2 -translate-y-1/2 font-mono font-bold text-base sm:text-lg">₹</span>
+                                    <input type="number" id="total-bill" data-testid="bill-amount-input"
+                                        class="bg-white border-2 border-black p-3 pl-8 font-mono text-base sm:text-lg font-bold focus:outline-none focus:bg-cream focus:shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all w-full"
+                                        placeholder="0.00" min="0" step="0.01" inputmode="decimal">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block font-bold uppercase tracking-wide text-xs mb-2 border-b-2 border-black inline-block pb-1">Total Days in Month</label>
+                                <input type="number" id="total-days" data-testid="total-days-input"
+                                    class="bg-white border-2 border-black p-3 font-mono text-base sm:text-lg font-bold focus:outline-none focus:bg-cream focus:shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all w-full"
+                                    value="30" min="1" max="31" inputmode="numeric">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Roommates Card -->
+                    <div class="bg-white border-2 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] sm:shadow-[6px_6px_0_0_rgba(0,0,0,1)] p-4 sm:p-6">
+                        <h2 class="font-heading font-black text-lg sm:text-xl uppercase tracking-tight mb-4 sm:mb-6 border-b-4 border-black pb-2">
+                            <i class="fas fa-users mr-2"></i>Roommates
+                        </h2>
+                        <div id="roommates-container" class="space-y-3 mb-4"></div>
+                        <button id="add-roommate" data-testid="add-roommate-button"
+                            class="btn-press w-full bg-white hover:bg-accent text-black border-2 border-black shadow-[3px_3px_0_0_rgba(0,0,0,1)] sm:shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-y-[2px] hover:translate-x-[2px] transition-all font-bold px-4 py-3 uppercase tracking-wide text-xs sm:text-sm">
+                            <i class="fas fa-plus mr-2"></i>Add Roommate
+                        </button>
+                    </div>
+
+                    <!-- Saved Groups Card -->
+                    <div class="bg-white border-2 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] sm:shadow-[6px_6px_0_0_rgba(0,0,0,1)] p-4 sm:p-6 no-print">
+                        <div class="flex justify-between items-center gap-3 mb-4 sm:mb-6 border-b-4 border-black pb-2">
+                            <h2 class="font-heading font-black text-lg sm:text-xl uppercase tracking-tight">
+                                <i class="fas fa-bookmark mr-2"></i>Saved Groups
+                            </h2>
+                            <span class="font-mono text-[10px] sm:text-xs uppercase tracking-wide bg-primary border-2 border-black px-2 py-1">Reuse Monthly</span>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <label for="profile-name" class="block font-bold uppercase tracking-wide text-xs mb-2 border-b-2 border-black inline-block pb-1">Group Name</label>
+                                <input type="text" id="profile-name"
+                                    class="bg-white border-2 border-black p-3 font-medium text-sm sm:text-base focus:outline-none focus:bg-cream focus:shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all w-full"
+                                    placeholder="Example: April Flatmates">
+                            </div>
+                            <button id="save-profile"
+                                class="btn-press w-full bg-secondary hover:bg-[#ffadc1] text-black border-2 border-black shadow-[3px_3px_0_0_rgba(0,0,0,1)] sm:shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-y-[2px] hover:translate-x-[2px] transition-all font-bold px-4 py-3 uppercase tracking-wide text-xs sm:text-sm">
+                                <i class="fas fa-save mr-2"></i>Save Current Group
+                            </button>
+                            <div>
+                                <label for="saved-profiles" class="block font-bold uppercase tracking-wide text-xs mb-2 border-b-2 border-black inline-block pb-1">Saved Groups</label>
+                                <select id="saved-profiles"
+                                    class="bg-white border-2 border-black p-3 font-medium text-sm sm:text-base focus:outline-none focus:bg-cream focus:shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all w-full">
+                                    <option value="">No saved groups yet</option>
+                                </select>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 sm:gap-3">
+                                <button id="load-profile"
+                                    class="btn-press bg-accent hover:bg-[#f8ddb2] text-black border-2 border-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] sm:shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[1px_1px_0_0_rgba(0,0,0,1)] sm:hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-y-[1px] hover:translate-x-[1px] sm:hover:translate-y-[2px] sm:hover:translate-x-[2px] transition-all font-bold px-3 py-2.5 sm:py-3 uppercase tracking-wide text-[10px] sm:text-xs">
+                                    <i class="fas fa-upload sm:mr-1"></i><span class="hidden sm:inline">Load Group</span><span class="sm:hidden">Load</span>
+                                </button>
+                                <button id="delete-profile"
+                                    class="btn-press bg-danger hover:bg-[#FF9999] text-black border-2 border-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] sm:shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[1px_1px_0_0_rgba(0,0,0,1)] sm:hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-y-[1px] hover:translate-x-[1px] sm:hover:translate-y-[2px] sm:hover:translate-x-[2px] transition-all font-bold px-3 py-2.5 sm:py-3 uppercase tracking-wide text-[10px] sm:text-xs">
+                                    <i class="fas fa-trash sm:mr-1"></i><span class="hidden sm:inline">Delete Group</span><span class="sm:hidden">Delete</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex flex-col gap-2 sm:gap-3">
+                        <button id="calculate" data-testid="calculate-bill-button"
+                            class="btn-press w-full bg-primary hover:bg-[#A0E2F3] text-black border-2 border-black shadow-[3px_3px_0_0_rgba(0,0,0,1)] sm:shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-y-[2px] hover:translate-x-[2px] transition-all font-bold px-4 sm:px-6 py-3 sm:py-4 uppercase tracking-wide text-sm sm:text-base">
+                            <i class="fas fa-calculator mr-2"></i>Calculate Shares
+                        </button>
+                        <div class="grid grid-cols-3 gap-2 sm:gap-3">
+                            <button id="save-history" data-testid="save-history-button"
+                                class="btn-press bg-white hover:bg-accent text-black border-2 border-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] sm:shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[1px_1px_0_0_rgba(0,0,0,1)] sm:hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-y-[1px] hover:translate-x-[1px] sm:hover:translate-y-[2px] sm:hover:translate-x-[2px] transition-all font-bold px-2 sm:px-3 py-2.5 sm:py-3 uppercase tracking-wide text-[10px] sm:text-xs disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                <i class="fas fa-save sm:mr-1"></i><span class="hidden sm:inline">Save</span>
+                            </button>
+                            <button id="export-csv" data-testid="export-csv-button"
+                                class="btn-press bg-white hover:bg-accent text-black border-2 border-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] sm:shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[1px_1px_0_0_rgba(0,0,0,1)] sm:hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-y-[1px] hover:translate-x-[1px] sm:hover:translate-y-[2px] sm:hover:translate-x-[2px] transition-all font-bold px-2 sm:px-3 py-2.5 sm:py-3 uppercase tracking-wide text-[10px] sm:text-xs disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                <i class="fas fa-file-csv sm:mr-1"></i><span class="hidden sm:inline">CSV</span>
+                            </button>
+                            <button id="print-btn" data-testid="print-pdf-button"
+                                class="btn-press bg-white hover:bg-accent text-black border-2 border-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] sm:shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:shadow-[1px_1px_0_0_rgba(0,0,0,1)] sm:hover:shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:translate-y-[1px] hover:translate-x-[1px] sm:hover:translate-y-[2px] sm:hover:translate-x-[2px] transition-all font-bold px-2 sm:px-3 py-2.5 sm:py-3 uppercase tracking-wide text-[10px] sm:text-xs disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                <i class="fas fa-print sm:mr-1"></i><span class="hidden sm:inline">Print</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column - Results & History -->
+                <div class="lg:col-span-7 flex flex-col gap-4 sm:gap-6">
+                    <div id="results-card" class="bg-white border-2 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] sm:shadow-[6px_6px_0_0_rgba(0,0,0,1)] p-4 sm:p-6 card-print">
+                        <h2 class="font-heading font-black text-lg sm:text-xl uppercase tracking-tight mb-4 sm:mb-6 border-b-4 border-black pb-2">
+                            <i class="fas fa-chart-pie mr-2"></i>Results
+                        </h2>
+                        <div id="empty-state" class="text-center py-6 sm:py-8">
+                            <div class="w-24 h-24 sm:w-32 sm:h-32 mx-auto mb-3 sm:mb-4 border-2 border-black shadow-[3px_3px_0_0_rgba(0,0,0,1)] sm:shadow-[4px_4px_0_0_rgba(0,0,0,1)] overflow-hidden">
+                                <img src="https://images.pexels.com/photos/7680696/pexels-photo-7680696.jpeg" alt="Calculator" class="w-full h-full object-cover">
+                            </div>
+                            <p class="font-bold uppercase tracking-wide text-xs sm:text-sm text-gray-500 px-4">
+                                Enter bill details and calculate to see results
+                            </p>
+                        </div>
+                        <div id="results-content" class="hidden">
+                            <div class="bg-accent border-2 border-black p-3 sm:p-4 mb-4 sm:mb-6">
+                                <div class="flex justify-between items-center">
+                                    <span class="font-bold uppercase text-xs sm:text-sm">Total Bill</span>
+                                    <span class="font-mono font-bold text-xl sm:text-2xl" id="summary-total">₹0.00</span>
+                                </div>
+                                <div class="flex justify-between items-center mt-2 text-xs sm:text-sm">
+                                    <span class="font-medium">Total Days Counted</span>
+                                    <span class="font-mono font-bold" id="summary-days">0</span>
+                                </div>
+                            </div>
+                            <div class="border-2 border-black overflow-x-auto -mx-4 sm:mx-0" data-testid="results-table">
+                                <table class="w-full min-w-[320px]">
+                                    <thead>
+                                        <tr class="bg-accent border-b-2 border-black">
+                                            <th class="p-2 sm:p-4 text-left font-heading font-black uppercase text-xs sm:text-sm tracking-wide">Name</th>
+                                            <th class="p-2 sm:p-4 text-center font-heading font-black uppercase text-xs sm:text-sm tracking-wide">Days</th>
+                                            <th class="p-2 sm:p-4 text-center font-heading font-black uppercase text-xs sm:text-sm tracking-wide hidden sm:table-cell">Share</th>
+                                            <th class="p-2 sm:p-4 text-right font-heading font-black uppercase text-xs sm:text-sm tracking-wide">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="results-table-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- History Card -->
+                    <div class="bg-white border-2 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] sm:shadow-[6px_6px_0_0_rgba(0,0,0,1)] p-4 sm:p-6 no-print" data-testid="history-section">
+                        <div class="flex justify-between items-center mb-4 sm:mb-6 border-b-4 border-black pb-2">
+                            <h2 class="font-heading font-black text-lg sm:text-xl uppercase tracking-tight">
+                                <i class="fas fa-history mr-2"></i>History
+                            </h2>
+                            <button id="clear-history"
+                                class="btn-press bg-danger hover:bg-[#FF9999] text-black border-2 border-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:shadow-[1px_1px_0_0_rgba(0,0,0,1)] hover:translate-y-[1px] hover:translate-x-[1px] transition-all font-bold px-2 sm:px-3 py-1 uppercase tracking-wide text-[10px] sm:text-xs">
+                                Clear
+                            </button>
+                        </div>
+                        <div id="history-container" class="space-y-2 sm:space-y-3 max-h-60 sm:max-h-80 overflow-y-auto">
+                            <p id="history-empty" class="text-center py-4 text-gray-500 font-medium text-xs sm:text-sm uppercase tracking-wide">
+                                No saved calculations yet
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <footer class="text-center mt-8 sm:mt-12 no-print pb-4">
+                <p class="text-xs sm:text-sm font-medium text-gray-600">
+                    Built to make shared electricity billing clearer and easier to manage
+                </p>
+            </footer>
+        </div>
+    </div>
+
+    <script>
+        // ========== CONFIG ==========
+        // Use same-origin /api so it works both in preview (Kubernetes ingress
+        // routes /api/* to backend) and on Render (single service deploy).
+        const API_BASE = '/api';
+        const TOKEN_KEY = 'bill_splitter_jwt';
+        const USER_KEY = 'bill_splitter_user';
+        const HISTORY_LS_KEY = 'bill_splitter_history';
+        const PROFILES_LS_KEY = 'bill_splitter_profiles';
+
+        // ========== APP STATE ==========
+        let currentResults = null;
+        let history = [];
+        let savedProfiles = [];
+        let currentUser = null;
+
+        // ========== DOM ELEMENTS ==========
+        const roommatesContainer = document.getElementById('roommates-container');
+        const addRoommateBtn = document.getElementById('add-roommate');
+        const calculateBtn = document.getElementById('calculate');
+        const saveHistoryBtn = document.getElementById('save-history');
+        const exportCsvBtn = document.getElementById('export-csv');
+        const printBtn = document.getElementById('print-btn');
+        const clearHistoryBtn = document.getElementById('clear-history');
+        const emptyState = document.getElementById('empty-state');
+        const resultsContent = document.getElementById('results-content');
+        const resultsTableBody = document.getElementById('results-table-body');
+        const historyContainer = document.getElementById('history-container');
+        const historyEmpty = document.getElementById('history-empty');
+        const appHeader = document.getElementById('app-header');
+        const authCard = document.getElementById('auth-card');
+        const protectedApp = document.getElementById('protected-app');
+        const profileNameInput = document.getElementById('profile-name');
+        const saveProfileBtn = document.getElementById('save-profile');
+        const savedProfilesSelect = document.getElementById('saved-profiles');
+        const loadProfileBtn = document.getElementById('load-profile');
+        const deleteProfileBtn = document.getElementById('delete-profile');
+        const loginUsernameInput = document.getElementById('login-username');
+        const loginPasswordInput = document.getElementById('login-password');
+        const loginBtn = document.getElementById('login-btn');
+        const logoutInlineBtn = document.getElementById('logout-inline-btn');
+        const authStatus = document.getElementById('auth-status');
+        const authBadge = document.getElementById('auth-badge');
+        const sessionUsername = document.getElementById('session-username');
+
+        // ========== INIT ==========
+        document.addEventListener('DOMContentLoaded', function () {
+            addRoommateRow();
+            addRoommateRow();
+
+            loadHistoryLocal();
+            loadProfilesLocal();
+            initializeAuth();
+
+            addRoommateBtn.addEventListener('click', addRoommateRow);
+            calculateBtn.addEventListener('click', calculateShares);
+            saveHistoryBtn.addEventListener('click', saveToHistory);
+            exportCsvBtn.addEventListener('click', exportToCSV);
+            printBtn.addEventListener('click', printResults);
+            clearHistoryBtn.addEventListener('click', clearHistory);
+            saveProfileBtn.addEventListener('click', saveCurrentProfile);
+            loadProfileBtn.addEventListener('click', loadSelectedProfile);
+            deleteProfileBtn.addEventListener('click', deleteSelectedProfile);
+            loginBtn.addEventListener('click', handleLogin);
+            logoutInlineBtn.addEventListener('click', handleLogout);
+            loginUsernameInput.addEventListener('keydown', handleLoginEnterKey);
+            loginPasswordInput.addEventListener('keydown', handleLoginEnterKey);
+        });
+
+        // ========== AUTH ==========
+        function getToken() { return localStorage.getItem(TOKEN_KEY); }
+        function setToken(t) { localStorage.setItem(TOKEN_KEY, t); }
+        function clearToken() {
+            localStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem(USER_KEY);
+        }
+
+        function initializeAuth() {
+            const token = getToken();
+            const userJson = localStorage.getItem(USER_KEY);
+            if (token && userJson) {
+                try {
+                    currentUser = JSON.parse(userJson);
+                    updateAuthUi(true);
+                    return;
+                } catch (e) {
+                    clearToken();
+                }
+            }
+            updateAuthUi(false);
+        }
+
+        function updateAuthUi(isLoggedIn) {
+            appHeader.classList.toggle('hidden', !isLoggedIn);
+            authCard.classList.toggle('hidden', isLoggedIn);
+            protectedApp.classList.toggle('hidden', !isLoggedIn);
+            loginUsernameInput.disabled = isLoggedIn;
+            loginPasswordInput.disabled = isLoggedIn;
+
+            if (isLoggedIn && currentUser) {
+                authBadge.textContent = 'Unlocked';
+                authBadge.className = 'font-mono text-[10px] sm:text-xs uppercase tracking-wide bg-primary border-2 border-black px-2 py-1';
+                authStatus.textContent = `Logged in as ${currentUser.username}`;
+                sessionUsername.textContent = `Logged in as ${currentUser.username}`;
+            } else {
+                authBadge.textContent = 'Locked';
+                authBadge.className = 'font-mono text-[10px] sm:text-xs uppercase tracking-wide bg-accent border-2 border-black px-2 py-1';
+                authStatus.textContent = 'Enter your username and password to continue.';
+                sessionUsername.textContent = 'Logged in user';
+            }
+        }
+
+        async function handleLogin() {
+            const username = loginUsernameInput.value.trim();
+            const password = loginPasswordInput.value;
+
+            if (!username || !password) {
+                showToast('Enter username and password', 'error');
+                return;
+            }
+
+            const originalText = loginBtn.innerHTML;
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Logging in...';
+
+            try {
+                const res = await fetch(`${API_BASE}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json().catch(() => ({}));
+
+                if (!res.ok) {
+                    const msg = typeof data.detail === 'string' ? data.detail : 'Login failed';
+                    throw new Error(msg);
+                }
+
+                setToken(data.access_token);
+                currentUser = { id: data.user_id, username: data.username };
+                localStorage.setItem(USER_KEY, JSON.stringify(currentUser));
+
+                loginPasswordInput.value = '';
+                updateAuthUi(true);
+                showToast('Access granted!', 'success');
+            } catch (err) {
+                showToast(err.message || 'Login failed', 'error');
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = originalText;
+            }
+        }
+
+        function handleLogout() {
+            clearToken();
+            currentUser = null;
+            loginUsernameInput.value = '';
+            loginPasswordInput.value = '';
+            updateAuthUi(false);
+            showToast('Logged out', 'success');
+        }
+
+        function handleLoginEnterKey(e) {
+            if (e.key === 'Enter') handleLogin();
+        }
+
+        function authHeaders() {
+            const token = getToken();
+            return token ? { 'Authorization': `Bearer ${token}` } : {};
+        }
+
+        // ========== ROOMMATE ROWS ==========
+        function addRoommateRow() {
+            const row = document.createElement('div');
+            row.className = 'roommate-row flex gap-2 items-center';
+            row.innerHTML = `
+                <input type="text"
+                    class="roommate-name flex-1 min-w-0 bg-white border-2 border-black p-2 sm:p-3 font-medium text-sm sm:text-base focus:outline-none focus:bg-cream focus:shadow-[3px_3px_0_0_rgba(0,0,0,1)] sm:focus:shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all"
+                    data-testid="roommate-name-input" placeholder="Name">
+                <input type="number"
+                    class="roommate-days w-16 sm:w-24 bg-white border-2 border-black p-2 sm:p-3 font-mono font-bold text-center text-sm sm:text-base focus:outline-none focus:bg-cream focus:shadow-[3px_3px_0_0_rgba(0,0,0,1)] sm:focus:shadow-[4px_4px_0_0_rgba(0,0,0,1)] transition-all"
+                    data-testid="roommate-days-input" placeholder="Days" min="0" inputmode="numeric">
+                <button class="remove-btn btn-press flex-shrink-0 bg-danger hover:bg-[#FF9999] text-black border-2 border-black shadow-[2px_2px_0_0_rgba(0,0,0,1)] hover:shadow-[1px_1px_0_0_rgba(0,0,0,1)] hover:translate-y-[1px] hover:translate-x-[1px] transition-all p-2 sm:p-3"
+                    data-testid="remove-roommate-button">
+                    <i class="fas fa-times text-sm"></i>
+                </button>`;
+            row.querySelector('.remove-btn').addEventListener('click', function () {
+                if (roommatesContainer.children.length > 1) row.remove();
+                else showToast('You need at least one roommate!', 'error');
+            });
+            roommatesContainer.appendChild(row);
+        }
+
+        // ========== CALCULATE (server-side, protected) ==========
+        async function calculateShares() {
+            const totalBill = parseFloat(document.getElementById('total-bill').value) || 0;
+            const totalDays = parseInt(document.getElementById('total-days').value) || 30;
+
+            if (totalBill <= 0) { showToast('Please enter a valid bill amount', 'error'); return; }
+            if (totalDays <= 0 || totalDays > 31) { showToast('Days must be between 1 and 31', 'error'); return; }
+
+            const roommateRows = document.querySelectorAll('.roommate-row');
+            const roommates = [];
+            for (let row of roommateRows) {
+                const name = row.querySelector('.roommate-name').value.trim();
+                const days = parseFloat(row.querySelector('.roommate-days').value) || 0;
+                if (!name) { showToast('Please enter names for all roommates', 'error'); return; }
+                if (days < 0 || days > totalDays) { showToast(`Days for ${name} must be between 0 and ${totalDays}`, 'error'); return; }
+                roommates.push({ name, days });
+            }
+
+            const originalText = calculateBtn.innerHTML;
+            calculateBtn.disabled = true;
+            calculateBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Calculating...';
+
+            try {
+                const res = await fetch(`${API_BASE}/calculate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                    body: JSON.stringify({ total_bill: totalBill, total_days: totalDays, roommates })
+                });
+
+                if (res.status === 401) {
+                    showToast('Session expired. Please log in again.', 'error');
+                    handleLogout();
+                    return;
+                }
+
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    const msg = typeof data.detail === 'string' ? data.detail : 'Calculation failed';
+                    throw new Error(msg);
+                }
+
+                currentResults = {
+                    totalBill: data.total_bill,
+                    totalDays: data.total_days,
+                    totalDaysPresent: data.total_days_present,
+                    roommates: data.roommates,
+                    date: new Date().toISOString()
+                };
+
+                displayResults(currentResults);
+                saveHistoryBtn.disabled = false;
+                exportCsvBtn.disabled = false;
+                printBtn.disabled = false;
+                showToast('Calculation complete!', 'success');
+            } catch (err) {
+                showToast(err.message || 'Calculation failed', 'error');
+            } finally {
+                calculateBtn.disabled = false;
+                calculateBtn.innerHTML = originalText;
+            }
+        }
+
+        function displayResults(data) {
+            document.getElementById('summary-total').textContent = `₹${Number(data.totalBill).toFixed(2)}`;
+            document.getElementById('summary-days').textContent = data.totalDaysPresent;
+            resultsTableBody.innerHTML = '';
+
+            data.roommates.forEach(r => {
+                const row = document.createElement('tr');
+                row.className = 'border-b-2 border-black last:border-b-0 hover:bg-cream transition-colors';
+                row.innerHTML = `
+                    <td class="p-2 sm:p-4 font-bold text-sm sm:text-base">${r.name}</td>
+                    <td class="p-2 sm:p-4 text-center font-mono font-bold text-sm sm:text-base">${r.days}</td>
+                    <td class="p-2 sm:p-4 text-center font-mono text-sm sm:text-base hidden sm:table-cell">${Number(r.percentage).toFixed(1)}%</td>
+                    <td class="p-2 sm:p-4 text-right font-mono font-bold text-sm sm:text-lg">₹${Number(r.amount).toFixed(2)}</td>`;
+                resultsTableBody.appendChild(row);
+            });
+
+            const totalRow = document.createElement('tr');
+            totalRow.className = 'bg-primary font-bold';
+            totalRow.innerHTML = `
+                <td class="p-2 sm:p-4 font-heading font-black uppercase text-sm sm:text-base">Total</td>
+                <td class="p-2 sm:p-4 text-center font-mono font-bold text-sm sm:text-base">${data.totalDaysPresent}</td>
+                <td class="p-2 sm:p-4 text-center font-mono font-bold text-sm sm:text-base hidden sm:table-cell">100%</td>
+                <td class="p-2 sm:p-4 text-right font-mono font-bold text-sm sm:text-lg">₹${Number(data.totalBill).toFixed(2)}</td>`;
+            resultsTableBody.appendChild(totalRow);
+
+            emptyState.classList.add('hidden');
+            resultsContent.classList.remove('hidden');
+        }
+
+        // ========== SAVED GROUPS (localStorage) ==========
+        function getCurrentRoommates() {
+            const rows = document.querySelectorAll('.roommate-row');
+            const roommates = [];
+            for (let row of rows) {
+                const name = row.querySelector('.roommate-name').value.trim();
+                const days = parseFloat(row.querySelector('.roommate-days').value) || 0;
+                if (!name) return { error: 'Please enter names for all roommates before saving a group' };
+                roommates.push({ name, days });
+            }
+            if (roommates.length === 0) return { error: 'Add at least one roommate before saving a group' };
+            return { roommates };
+        }
+
+        function loadProfilesLocal() {
+            try { savedProfiles = JSON.parse(localStorage.getItem(PROFILES_LS_KEY) || '[]'); }
+            catch (e) { savedProfiles = []; }
+            renderProfiles();
+        }
+
+        function persistProfiles() {
+            localStorage.setItem(PROFILES_LS_KEY, JSON.stringify(savedProfiles));
+            renderProfiles();
+        }
+
+        function renderProfiles() {
+            savedProfilesSelect.innerHTML = '';
+            if (savedProfiles.length === 0) {
+                const o = document.createElement('option');
+                o.value = ''; o.textContent = 'No saved groups yet';
+                savedProfilesSelect.appendChild(o);
+                savedProfilesSelect.disabled = true;
+                loadProfileBtn.disabled = true;
+                deleteProfileBtn.disabled = true;
+                return;
+            }
+            const def = document.createElement('option');
+            def.value = ''; def.textContent = 'Choose a saved group';
+            savedProfilesSelect.appendChild(def);
+            savedProfiles.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `${p.name} (${p.roommates.length} ppl)`;
+                savedProfilesSelect.appendChild(opt);
+            });
+            savedProfilesSelect.disabled = false;
+            loadProfileBtn.disabled = false;
+            deleteProfileBtn.disabled = false;
+        }
+
+        function saveCurrentProfile() {
+            const profileName = profileNameInput.value.trim();
+            if (!profileName) { showToast('Please enter a group name', 'error'); return; }
+            const { roommates, error } = getCurrentRoommates();
+            if (error) { showToast(error, 'error'); return; }
+
+            const idx = savedProfiles.findIndex(p => p.name.toLowerCase() === profileName.toLowerCase());
+            if (idx >= 0) {
+                savedProfiles[idx] = { ...savedProfiles[idx], name: profileName, roommates, savedAt: new Date().toISOString() };
+                showToast('Saved group updated!', 'success');
+            } else {
+                savedProfiles.unshift({ id: 'p_' + Date.now(), name: profileName, roommates, savedAt: new Date().toISOString() });
+                showToast('Group saved!', 'success');
+            }
+            savedProfiles = savedProfiles.slice(0, 12);
+            persistProfiles();
+            savedProfilesSelect.value = savedProfiles[0]?.id || '';
+            profileNameInput.value = '';
+        }
+
+        function loadSelectedProfile() {
+            const id = savedProfilesSelect.value;
+            if (!id) { showToast('Choose a saved group first', 'error'); return; }
+            const profile = savedProfiles.find(p => p.id === id);
+            if (!profile) { showToast('Saved group not found', 'error'); return; }
+
+            roommatesContainer.innerHTML = '';
+            profile.roommates.forEach(r => {
+                addRoommateRow();
+                const rows = roommatesContainer.querySelectorAll('.roommate-row');
+                const last = rows[rows.length - 1];
+                last.querySelector('.roommate-name').value = r.name;
+                last.querySelector('.roommate-days').value = r.days;
+            });
+            profileNameInput.value = profile.name;
+            showToast('Saved group loaded!', 'success');
+        }
+
+        function deleteSelectedProfile() {
+            const id = savedProfilesSelect.value;
+            if (!id) { showToast('Choose a saved group first', 'error'); return; }
+            const profile = savedProfiles.find(p => p.id === id);
+            if (!profile) { showToast('Saved group not found', 'error'); return; }
+            if (!confirm(`Delete "${profile.name}"?`)) return;
+            savedProfiles = savedProfiles.filter(p => p.id !== id);
+            persistProfiles();
+            profileNameInput.value = '';
+            showToast('Saved group deleted!', 'success');
+        }
+
+        // ========== HISTORY (localStorage) ==========
+        function loadHistoryLocal() {
+            try { history = JSON.parse(localStorage.getItem(HISTORY_LS_KEY) || '[]'); }
+            catch (e) { history = []; }
+            renderHistory();
+        }
+
+        function persistHistory() {
+            localStorage.setItem(HISTORY_LS_KEY, JSON.stringify(history));
+            renderHistory();
+        }
+
+        function saveToHistory() {
+            if (!currentResults) return;
+            history.unshift({
+                id: 'h_' + Date.now(),
+                totalBill: currentResults.totalBill,
+                totalDays: currentResults.totalDays,
+                totalDaysPresent: currentResults.totalDaysPresent,
+                roommates: currentResults.roommates,
+                date: currentResults.date
+            });
+            history = history.slice(0, 10);
+            persistHistory();
+            showToast('Saved to history!', 'success');
+        }
+
+        function renderHistory() {
+            const existing = historyContainer.querySelectorAll('.history-item');
+            existing.forEach(i => i.remove());
+
+            if (history.length === 0) {
+                historyEmpty.classList.remove('hidden');
+                return;
+            }
+            historyEmpty.classList.add('hidden');
+
+            history.forEach((item, index) => {
+                const date = new Date(item.date);
+                const formatted = date.toLocaleDateString('en-IN', {
+                    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+                const div = document.createElement('div');
+                div.className = 'history-item bg-cream border-2 border-black p-3 sm:p-4 cursor-pointer hover:bg-accent transition-colors active:bg-accent';
+                div.innerHTML = `
+                    <div class="flex justify-between items-start gap-2">
+                        <div class="min-w-0">
+                            <p class="font-mono font-bold text-base sm:text-lg">₹${Number(item.totalBill).toFixed(2)}</p>
+                            <p class="text-[10px] sm:text-xs text-gray-600 font-medium truncate">${formatted}</p>
+                        </div>
+                        <div class="flex-shrink-0">
+                            <span class="inline-block bg-secondary border-2 border-black px-1.5 sm:px-2 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold">
+                                ${item.roommates.length} ppl
+                            </span>
+                        </div>
+                    </div>
+                    <div class="mt-2 flex flex-wrap gap-1">
+                        ${item.roommates.map(r => `
+                            <span class="text-[10px] sm:text-xs font-medium bg-white border border-black px-1.5 sm:px-2 py-0.5">
+                                ${r.name}: ₹${Number(r.amount).toFixed(0)}
+                            </span>`).join('')}
+                    </div>`;
+                div.addEventListener('click', () => loadFromHistory(index));
+                historyContainer.insertBefore(div, historyEmpty);
+            });
+        }
+
+        function loadFromHistory(index) {
+            const item = history[index];
+            document.getElementById('total-bill').value = item.totalBill;
+            document.getElementById('total-days').value = item.totalDays;
+            roommatesContainer.innerHTML = '';
+            item.roommates.forEach(r => {
+                addRoommateRow();
+                const rows = roommatesContainer.querySelectorAll('.roommate-row');
+                const last = rows[rows.length - 1];
+                last.querySelector('.roommate-name').value = r.name;
+                last.querySelector('.roommate-days').value = r.days;
+            });
+            currentResults = item;
+            displayResults(item);
+            saveHistoryBtn.disabled = false;
+            exportCsvBtn.disabled = false;
+            printBtn.disabled = false;
+            showToast('Loaded from history!', 'success');
+        }
+
+        function clearHistory() {
+            if (!confirm('Are you sure you want to clear all history?')) return;
+            history = [];
+            persistHistory();
+            showToast('History cleared!', 'success');
+        }
+
+        // ========== EXPORT ==========
+        function exportToCSV() {
+            if (!currentResults) return;
+            const date = new Date(currentResults.date);
+            const formatted = date.toLocaleDateString('en-IN');
+            let csv = 'Room Bill Split Report\n';
+            csv += `Date,${formatted}\n`;
+            csv += `Total Bill,${Number(currentResults.totalBill).toFixed(2)}\n`;
+            csv += `Total Days,${currentResults.totalDays}\n\n`;
+            csv += 'Roommate,Days Present,Share %,Amount (INR)\n';
+            currentResults.roommates.forEach(r => {
+                csv += `${r.name},${r.days},${Number(r.percentage).toFixed(1)}%,${Number(r.amount).toFixed(2)}\n`;
+            });
+            csv += `\nTotal,${currentResults.totalDaysPresent},100%,${Number(currentResults.totalBill).toFixed(2)}\n`;
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `bill-split-${formatted.replace(/\//g, '-')}.csv`;
+            link.click();
+            showToast('CSV exported!', 'success');
+        }
+
+        function printResults() {
+            if (!currentResults) return;
+            const d = new Date();
+            document.getElementById('print-date').textContent =
+                `Generated on ${d.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
+            window.print();
+        }
+
+        // ========== TOAST ==========
+        function showToast(message, type = 'info') {
+            const existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+            const toast = document.createElement('div');
+            toast.className = 'toast fixed bottom-4 right-4 px-6 py-3 border-2 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] font-bold text-sm uppercase tracking-wide z-50 transition-all transform translate-y-0';
+            if (type === 'success') toast.classList.add('bg-primary');
+            else if (type === 'error') toast.classList.add('bg-danger');
+            else toast.classList.add('bg-white');
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(20px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+
+    <!-- Emergent badge -->
+    <a id="emergent-badge" target="_blank" href="https://app.emergent.sh/?utm_source=emergent-badge"
+        style="display: inline-flex !important; box-sizing: border-box; width: 178px; height: 40px; padding: 8px 12px 8px 12px; align-items: center !important; gap: 8px; border-radius: 50px !important; background: #000 !important; position: fixed !important; bottom: 16px; right: 16px; text-decoration: none; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important; font-size: 12px !important; z-index: 9999 !important;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M15.5702 8.13142C15.7729 8.0412 16.0007 8.18878 15.9892 8.4103C15.8374 11.3192 14.0965 14.0405 11.2531 15.3065C8.40964 16.5725 5.2224 16.0453 2.95912 14.2117C2.78676 14.072 2.82955 13.804 3.03219 13.7137L4.95677 12.8568C5.04866 12.8159 5.15446 12.823 5.24204 12.8725C6.73377 13.7153 8.59176 13.8649 10.2772 13.1145C11.9626 12.3641 13.0947 10.8833 13.4665 9.21075C13.4883 9.11256 13.5539 9.02918 13.6457 8.98827L15.5702 8.13142Z" fill="white"/>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M15.3066 4.74698L15.5067 5.19653C15.5759 5.35178 15.5061 5.53366 15.3508 5.60278L1.29992 11.8586C1.14467 11.9278 0.962794 11.8579 0.893675 11.7027L0.701732 11.2716L0.693457 11.2531C-1.10317 7.21778 0.711626 2.49007 4.74692 0.693443C8.78221 -1.10318 13.51 0.711693 15.3066 4.74698ZM2.82356 8.55367C2.63552 8.63739 2.41991 8.51617 2.40853 8.31065C2.28373 6.05724 3.53858 3.85787 5.72286 2.88536C7.90715 1.91286 10.3813 2.45199 11.9724 4.05256C12.1175 4.19854 12.0633 4.43988 11.8753 4.5236L2.82356 8.55367Z" fill="white"/>
+        </svg>
+        <p style="color: #FFF !important; font-family: 'Inter', sans-serif !important; font-size: 13px !important; font-weight: 600 !important; line-height: 20px !important; margin: 0 !important; white-space: nowrap !important;">
+            Made with Emergent
+        </p>
+    </a>
+</body>
+</html>
